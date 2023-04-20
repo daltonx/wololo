@@ -23,15 +23,19 @@ public class Controller {
             res.text(data);
         });
 
-        post("/office2pdf", (Request req, Response res) -> {
+        post("/print", (Request req, Response res) -> {
             Instance instance = daemon.getInstance();
             if (instance != null) {
                 Converter converter = new Converter(req, res, instance);
-                Thread t = new Thread(converter::run);
+                Thread t = new Thread(converter::print);
                 t.start();
             } else {
                 req.ready = false;
             }
+        });
+
+        post("/convert", (Request req, Response res) -> {
+            res.text("placeholder");
         });
     }
 

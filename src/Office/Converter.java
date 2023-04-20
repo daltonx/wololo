@@ -7,7 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
-public class Converter implements Runnable {
+public class Converter {
     private Request req;
     private Response res;
     private Instance office;
@@ -18,7 +18,7 @@ public class Converter implements Runnable {
         this.office = office;
     }
 
-    public void run () {
+    public void print () {
         try {
             File inputFile = File.createTempFile("input_", ".xx");
             Files.write(inputFile.toPath(), req.body);
