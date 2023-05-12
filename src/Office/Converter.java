@@ -24,7 +24,6 @@ public class Converter {
             Files.write(inputFile.toPath(), req.body);
 
             File outputFile = File.createTempFile("output_", ".pdf");
-
             inputFile.deleteOnExit();
             outputFile.deleteOnExit();
 
@@ -33,7 +32,6 @@ public class Converter {
             document.print(outputFile.getPath());
             res.file(outputFile.getPath(), "application/pdf");
             res.ready = true;
-            System.out.println("Document printed");
             document.dispose();
             inputFile.delete();
             outputFile.delete();

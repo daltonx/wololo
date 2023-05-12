@@ -12,7 +12,7 @@ public class Controller {
         Daemon daemon = new Daemon(minInstances != null ? Integer.parseInt(minInstances) : 5);
 
         get("/", (Request req, Response res) -> {
-            res.text("WOLOLO");
+            res.text("WOLOLO v0.2");
         });
 
         get("/status", (Request req, Response res) -> {
@@ -35,6 +35,10 @@ public class Controller {
         });
 
         post("/convert", (Request req, Response res) -> {
+            res.text("placeholder");
+        });
+
+        post("/convert/legacy", (Request req, Response res) -> {
             res.text("placeholder");
         });
     }

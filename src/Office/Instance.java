@@ -27,6 +27,7 @@ import com.sun.star.util.XCloseable;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -44,6 +45,7 @@ public class Instance {
     public XComponentLoader xCompLoader;
     private XDispatchProvider dispatchProvider;
     public XBridgeFactory xbf;
+    private Path userInstallation;
 
     public Instance() {
         //properties ReadOnly, OpenNewView, Hidden, Silent should be added, as in dispatchwatcher.cxx
@@ -69,7 +71,7 @@ public class Instance {
 
         String sOffice = System.getenv("SOFFICE");
 
-        Path userInstallation = Files.createTempDirectory("libre_");
+        userInstallation = Files.createTempDirectory("soffice_");
 
         String cmd[] = new String[]{
                 sOffice,
@@ -87,8 +89,8 @@ public class Instance {
         lastActivity = System.currentTimeMillis();
         state = State.STARTED;
 
-        //pipe(process.getInputStream(), System.out, "");
-        //pipe(process.getErrorStream(), System.err, "");
+        pipe(process.getInputStream(), System.out, "");
+        pipe(process.getErrorStream(), System.err, "");
     }
     private static void pipe(final InputStream in, final PrintStream out, final String prefix) {
         (new Thread("Pipe: " + prefix) {
@@ -114,9 +116,25 @@ public class Instance {
         }).start();
     }
 
+    private void deleteProfile () throws IOException {
+        Files.walk(userInstallation)
+                .sorted(Comparator.reverseOrder())
+                .map(Path::toFile)
+                .forEach(File::delete);
+    }
+
+    /**
+     * @TODO clear /tmp dirs and files properly
+     */
     public void kill () {
-        System.err.println(String.format("INSTANCE %s - KILLED", pipeName));
-        process.destroyForcibly();
+        try {
+            System.err.println(String.format("INSTANCE %s - KILLED", pipeName));
+            process.destroyForcibly();
+            deleteProfile();
+        } catch (IOException e) {
+            System.out.print(e);
+            //throw new RuntimeException(e);
+        }
     }
 
     private void insertFactories(XSet xSet, XImplementationLoader xImpLoader) throws Exception {
@@ -152,7 +170,6 @@ public class Instance {
         try {
             _connect();
         } catch (Throwable e) {
-            //System.err.println(e);
             //System.err.println("Connection failed, retry");
         }
     }

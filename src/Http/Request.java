@@ -39,7 +39,7 @@ public class Request {
                 if (token == null) return false;
                 return parseHeader(token);
             case BODY:
-                token = tokenizer.next(Integer.parseInt(headers.get("Content-Length")));
+                token = tokenizer.next(Integer.parseInt(headers.get("content-length")));
                 if (token == null) return false;
                 return parseBody(token);
             case END:
@@ -68,13 +68,12 @@ public class Request {
 
     private boolean parseHeader (byte[] token) {
         if (token.length == 0) {
-            state = headers.containsKey("Content-Length") ? state.BODY : state.END;
+            state = headers.containsKey("content-length") ? state.BODY : state.END;
             return true;
         }
 
         String[] parts = new String(token).split(COLON);
-        headers.put(parts[0], parts[1]);
-
+        headers.put(parts[0].toLowerCase(), parts[1]);
         return true;
     }
 
