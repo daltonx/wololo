@@ -1,5 +1,7 @@
 package Office;
 
+import Http.Request;
+import Http.Response;
 import com.sun.star.beans.PropertyState;
 import com.sun.star.beans.PropertyValue;
 import com.sun.star.bridge.UnoUrlResolver;
@@ -84,13 +86,12 @@ public class Instance {
                 "-env:UserInstallation=file://" + userInstallation.toString(),
         };
 
-        System.out.println(userInstallation.toString());
         process = Runtime.getRuntime().exec(cmd);
         lastActivity = System.currentTimeMillis();
         state = State.STARTED;
 
-        pipe(process.getInputStream(), System.out, "");
-        pipe(process.getErrorStream(), System.err, "");
+        //pipe(process.getInputStream(), System.out, "");
+        //pipe(process.getErrorStream(), System.err, "");
     }
     private static void pipe(final InputStream in, final PrintStream out, final String prefix) {
         (new Thread("Pipe: " + prefix) {
@@ -242,8 +243,7 @@ public class Instance {
 
         return xDoc;
     }
-
-
+    
     public XComponent loadDocumentBuffer (byte[] buffer) {
         try {
             return _loadDocumentBuffer(buffer);
@@ -262,5 +262,48 @@ public class Instance {
         documentProperties[3] = inputStream;
 
         return xCompLoader.loadComponentFromURL("private:stream", "_blank", 0, documentProperties);
+    }
+
+    public void singleTask (Request req, Response res, boolean convert) throws IOException, InterruptedException {
+        String sOffice = System.getenv("SOFFICE");
+
+        userInstallation = Files.createTempDirectory("soffice_");
+
+        File inputFile = File.createTempFile("input_", null);
+        Files.write(inputFile.toPath(), req.body);
+        inputFile.deleteOnExit();
+
+        String cmd[] = new String[]{
+                //"timeout 40s",
+                sOffice,
+                "--headless",
+                "--writer",
+                "--invisible",
+                "--nodefault",
+                "--nofirststartwizard",
+                "--nolockcheck",
+                "--nologo",
+                "--norestore",
+                convert ? "--convert-to" : "print-to-file",
+                convert ? "pdf" : null,
+                inputFile.getPath(),
+                "--outdir", inputFile.getParent(),
+                "-env:UserInstallation=file://" + userInstallation.toString(),
+                //"LANG=pt_BR.UTF8",
+        };
+
+        Process process = Runtime.getRuntime().exec(cmd);
+        process.waitFor();
+
+        if (process.exitValue() == 0) {
+            Path outputFile = Path.of(inputFile.getPath().replace(".tmp", ".pdf"));
+            res.file(outputFile.toString(), "application/pdf");
+            Files.delete(outputFile);
+        } else {
+            res.status(500);
+        }
+
+        inputFile.delete();
+        deleteProfile();
     }
 }

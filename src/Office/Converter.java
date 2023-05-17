@@ -3,9 +3,9 @@ package Office;
 import Http.Request;
 import Http.Response;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class Converter {
     private Request req;
@@ -16,6 +16,11 @@ public class Converter {
         this.req = req;
         this.res = res;
         this.office = office;
+    }
+
+    public Converter(Request req, Response res) {
+        this.req = req;
+        this.res = res;
     }
 
     public void print () {
@@ -37,6 +42,31 @@ public class Converter {
             outputFile.delete();
         } catch (IOException e) {
             //throw new RuntimeException(e);
+        }
+    }
+
+    public void legacyPrint () {
+        try {
+            Instance instance = new Instance();
+            instance.singleTask(req, res, false);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public void convert () {
+
+    }
+
+    public void legacyConvert () {
+        try {
+            Instance instance = new Instance();
+            instance.singleTask(req, res, true);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 }

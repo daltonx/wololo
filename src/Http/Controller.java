@@ -12,7 +12,7 @@ public class Controller {
         Daemon daemon = new Daemon(minInstances != null ? Integer.parseInt(minInstances) : 5);
 
         get("/", (Request req, Response res) -> {
-            res.text("WOLOLO v0.2");
+            res.text("WOLOLO v0.3");
         });
 
         get("/status", (Request req, Response res) -> {
@@ -27,8 +27,8 @@ public class Controller {
             Instance instance = daemon.getInstance();
             if (instance != null) {
                 Converter converter = new Converter(req, res, instance);
-                Thread t = new Thread(converter::print);
-                t.start();
+                Thread thread = new Thread(converter::print);
+                thread.start();
             } else {
                 req.ready = false;
             }
@@ -38,8 +38,16 @@ public class Controller {
             res.text("placeholder");
         });
 
-        post("/convert/legacy", (Request req, Response res) -> {
-            res.text("placeholder");
+        post("/legacy/convert", (Request req, Response res) -> {
+            Converter converter = new Converter(req, res);
+            Thread thread = new Thread(converter::legacyConvert);
+            thread.start();
+        });
+
+        post("/legacy/print", (Request req, Response res) -> {
+            Converter converter = new Converter(req, res);
+            Thread thread = new Thread(converter::legacyConvert);
+            thread.start();
         });
     }
 
