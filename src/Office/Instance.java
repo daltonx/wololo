@@ -284,8 +284,8 @@ public class Instance {
                 "--nolockcheck",
                 "--nologo",
                 "--norestore",
-                convert ? "--convert-to" : "print-to-file",
-                convert ? "pdf" : null,
+                convert ? "--convert-to" : "--print-to-file",
+                convert ? "pdf" : "",
                 inputFile.getPath(),
                 "--outdir", inputFile.getParent(),
                 "-env:UserInstallation=file://" + userInstallation.toString(),
@@ -293,6 +293,8 @@ public class Instance {
         };
 
         Process process = Runtime.getRuntime().exec(cmd);
+        pipe(process.getInputStream(), System.out, "");
+        pipe(process.getErrorStream(), System.err, "");
         process.waitFor();
 
         if (process.exitValue() == 0) {

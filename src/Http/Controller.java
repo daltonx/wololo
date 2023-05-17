@@ -46,7 +46,7 @@ public class Controller {
 
         post("/legacy/print", (Request req, Response res) -> {
             Converter converter = new Converter(req, res);
-            Thread thread = new Thread(converter::legacyConvert);
+            Thread thread = new Thread(converter::legacyPrint);
             thread.start();
         });
     }
