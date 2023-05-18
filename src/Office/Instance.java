@@ -17,7 +17,6 @@ import com.sun.star.frame.XDispatch;
 import com.sun.star.frame.XDispatchProvider;
 import com.sun.star.frame.XSynchronousDispatch;
 import com.sun.star.lang.*;
-import com.sun.star.lib.uno.adapter.ByteArrayToXInputStreamAdapter;
 import com.sun.star.loader.XImplementationLoader;
 import com.sun.star.uno.Exception;
 import com.sun.star.uno.UnoRuntime;
@@ -73,7 +72,7 @@ public class Instance {
 
         String sOffice = System.getenv("SOFFICE");
 
-        userInstallation = Files.createTempDirectory("soffice_");
+        userInstallation = Util.newTempPath("soffice_", "");
 
         String cmd[] = new String[]{
                 sOffice,
@@ -90,8 +89,8 @@ public class Instance {
         lastActivity = System.currentTimeMillis();
         state = State.STARTED;
 
-        //pipe(process.getInputStream(), System.out, "");
-        //pipe(process.getErrorStream(), System.err, "");
+        pipe(process.getInputStream(), System.out, "");
+        pipe(process.getErrorStream(), System.err, "");
     }
     private static void pipe(final InputStream in, final PrintStream out, final String prefix) {
         (new Thread("Pipe: " + prefix) {
@@ -112,7 +111,6 @@ public class Instance {
                 } catch (IOException var4) {
                     var4.printStackTrace(System.err);
                 }
-
             }
         }).start();
     }
@@ -133,7 +131,7 @@ public class Instance {
             process.destroyForcibly();
             deleteProfile();
         } catch (IOException e) {
-            System.out.print(e);
+            System.out.print("Failed to kill a instance.");
             //throw new RuntimeException(e);
         }
     }
@@ -243,34 +241,13 @@ public class Instance {
 
         return xDoc;
     }
-    
-    public XComponent loadDocumentBuffer (byte[] buffer) {
-        try {
-            return _loadDocumentBuffer(buffer);
-        } catch (Throwable e) {
-            System.err.println(e);
-            return null;
-        }
-    }
-
-    public XComponent _loadDocumentBuffer (byte[] buffer) throws com.sun.star.io.IOException {
-        ByteArrayToXInputStreamAdapter stream = new ByteArrayToXInputStreamAdapter(buffer);
-        PropertyValue inputStream = new PropertyValue();
-        inputStream.Name = "InputStream";
-        inputStream.Value = stream;
-
-        documentProperties[3] = inputStream;
-
-        return xCompLoader.loadComponentFromURL("private:stream", "_blank", 0, documentProperties);
-    }
 
     public void singleTask (Request req, Response res, boolean convert) throws IOException, InterruptedException {
         String sOffice = System.getenv("SOFFICE");
 
-        userInstallation = Files.createTempDirectory("soffice_");
+        userInstallation = Util.newTempPath("soffice_", "");
 
-        File inputFile = File.createTempFile("input_", null);
-        Files.write(inputFile.toPath(), req.body);
+        File inputFile = Util.writeTempFile("input_", ".tmp", req.body);
         inputFile.deleteOnExit();
 
         String cmd[] = new String[]{
@@ -293,8 +270,8 @@ public class Instance {
         };
 
         Process process = Runtime.getRuntime().exec(cmd);
-        pipe(process.getInputStream(), System.out, "");
-        pipe(process.getErrorStream(), System.err, "");
+        //pipe(process.getInputStream(), System.out, "");
+        //pipe(process.getErrorStream(), System.err, "");
         process.waitFor();
 
         if (process.exitValue() == 0) {

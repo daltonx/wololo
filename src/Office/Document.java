@@ -17,14 +17,6 @@ public class Document {
         this.office = office;
     }
 
-    public void loadBuffer (byte[] buffer) {
-        document = office.loadDocumentBuffer(buffer);
-    }
-
-    public void printBuffer(byte[] buffer) {
-
-    }
-
     public void load (String path) {
         try {
             _load(path);
@@ -55,27 +47,10 @@ public class Document {
 
         XPrintable xPrintable = UnoRuntime.queryInterface(XPrintable.class, this.document);
 
-        try {
-            xPrintable.print(new PropertyValue[]{
-                    new PropertyValue("FileName", -1, outputUrl.toString(), PropertyState.DIRECT_VALUE),
-                    new PropertyValue("Wait", -1, true, PropertyState.DIRECT_VALUE),
-            });
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public void printBuffer () {
-        XPrintable xPrintable = UnoRuntime.queryInterface(XPrintable.class, this.document);
-
-        try {
-            xPrintable.print(new PropertyValue[]{
-                    new PropertyValue("FileName", -1, "private:stream", PropertyState.DIRECT_VALUE),
-                    new PropertyValue("Wait", -1, true, PropertyState.DIRECT_VALUE)
-            });
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
-        }
+        xPrintable.print(new PropertyValue[]{
+                new PropertyValue("FileName", -1, outputUrl.toString(), PropertyState.DIRECT_VALUE),
+                new PropertyValue("Wait", -1, true, PropertyState.DIRECT_VALUE),
+        });
     }
 
     public void dispose () {

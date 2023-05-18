@@ -25,21 +25,19 @@ public class Converter {
 
     public void print () {
         try {
-            File inputFile = File.createTempFile("input_", ".xx");
-            Files.write(inputFile.toPath(), req.body);
-
-            File outputFile = File.createTempFile("output_", ".pdf");
+            File inputFile = Util.writeTempFile("input_", ".tmp", req.body);
             inputFile.deleteOnExit();
-            outputFile.deleteOnExit();
+
+            Path outputFile = Util.newTempPath("output_", ".pdf");
 
             Document document = new Document(office);
             document.load(inputFile.getPath());
-            document.print(outputFile.getPath());
-            res.file(outputFile.getPath(), "application/pdf");
+            document.print(outputFile.toString());
+            res.file(outputFile.toString(), "application/pdf");
             res.ready = true;
             document.dispose();
             inputFile.delete();
-            outputFile.delete();
+            Files.delete(outputFile);
         } catch (IOException e) {
             //throw new RuntimeException(e);
         }
@@ -54,9 +52,6 @@ public class Converter {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-    }
-    public void convert () {
-
     }
 
     public void legacyConvert () {

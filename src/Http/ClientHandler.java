@@ -10,25 +10,25 @@ public class ClientHandler {
     private SelectionKey key;
     private Request request = new Request();
     private Response response = new Response();
-    private Controller controller;
+    private Router router;
     private final int chunkSize = 64 * 1024;
     private final int maxRequestSize = 1024 * 1024;
     // this buffer could be shared between keys on a channel, as it holds ephemeral data
     // it would reduce memory usage and the allocation overhead
     private ByteBuffer readBuffer = ByteBuffer.allocate(chunkSize);
     private boolean finishedReading = false;
-    ClientHandler (SocketChannel clientSocket, SelectionKey selectionKey, Controller controller) {
+    ClientHandler (SocketChannel clientSocket, SelectionKey selectionKey, Router router) {
         socket = clientSocket;
         key = selectionKey;
         key.attach(this);
-        this.controller = controller;
+        this.router = router;
     }
 
     void onReadable () {
         try {
             readRequest();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.err.println("Failed to read from a connection.");
         }
     }
 
@@ -49,13 +49,14 @@ public class ClientHandler {
     void onWritable () {
         try {
             if (!request.ready) {
-                controller.handle(request, response);
+                router.handle(request, response);
             }
             if (response.ready) {
                 writeResponse();
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.err.println("Failed to write to a connection.");
+            close();
         }
     }
 
@@ -72,7 +73,7 @@ public class ClientHandler {
             key.cancel();
             socket.close();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.err.println("Failed to close a connection.");
         }
     }
 }

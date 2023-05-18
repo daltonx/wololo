@@ -1,6 +1,8 @@
 /* Simple HTTP server, heavily inspired by https://github.com/ebarlas/microhttp */
 package Http;
 
+import Office.Util;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
@@ -14,7 +16,7 @@ public class Server {
     ServerSocketChannel serverSocketChannel;
     Selector selector;
 
-    private Controller controller = new Controller();
+    private Router router = new Router();
     public Server () throws IOException {
         selector = Selector.open();
 
@@ -48,7 +50,7 @@ public class Server {
                     SocketChannel clientSocket = serverSocketChannel.accept();
                     clientSocket.configureBlocking(false);
                     SelectionKey _key = clientSocket.register(selector, SelectionKey.OP_READ);
-                    new ClientHandler(clientSocket, _key, controller);
+                    new ClientHandler(clientSocket, _key, router);
                 } else if (key.isReadable()) {
                     ClientHandler clientHandler = (ClientHandler) key.attachment();
                     clientHandler.onReadable();
@@ -56,7 +58,6 @@ public class Server {
                     ClientHandler clientHandler = (ClientHandler) key.attachment();
                     clientHandler.onWritable();
                 }
-
                 iterator.remove();
             }
         }

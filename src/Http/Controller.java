@@ -3,62 +3,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
-import Office.*;
-
-public class Controller {
+public abstract class Controller {
     private Map<String, BiConsumer<Request, Response>> routes = new HashMap<>();
-    Controller () {
-        String minInstances = System.getenv("MIN_INSTANCES");
-        Daemon daemon = new Daemon(minInstances != null ? Integer.parseInt(minInstances) : 5);
 
-        get("/", (Request req, Response res) -> {
-            res.text("WOLOLO v0.3");
-        });
-
-        get("/status", (Request req, Response res) -> {
-            String data = "";
-            for (Instance instance: daemon.instances) {
-                data += String.format("<div>%s - %s - %d RUNS<div>", instance.pipeName, instance.state, instance.runs);
-            }
-            res.text(data);
-        });
-
-        post("/print", (Request req, Response res) -> {
-            Instance instance = daemon.getInstance();
-            if (instance != null) {
-                Converter converter = new Converter(req, res, instance);
-                Thread thread = new Thread(converter::print);
-                thread.start();
-            } else {
-                req.ready = false;
-            }
-        });
-
-        post("/convert", (Request req, Response res) -> {
-            res.text("placeholder");
-        });
-
-        post("/legacy/convert", (Request req, Response res) -> {
-            Converter converter = new Converter(req, res);
-            Thread thread = new Thread(converter::legacyConvert);
-            thread.start();
-        });
-
-        post("/legacy/print", (Request req, Response res) -> {
-            Converter converter = new Converter(req, res);
-            Thread thread = new Thread(converter::legacyPrint);
-            thread.start();
-        });
-    }
-
-    public void get (String route, BiConsumer<Request, Response> handler) {
+    protected void get (String route, BiConsumer<Request, Response> handler) {
         routes.put("GET@" + route, handler);
     }
-    public void post (String route, BiConsumer<Request, Response> handler) {
+    protected void post (String route, BiConsumer<Request, Response> handler) {
         routes.put("POST@" + route, handler);
     }
 
-    public void handle (Request req, Response res) {
+    protected void handle (Request req, Response res) {
         String route = req.method + "@" + req.uri;
         BiConsumer<Request, Response> handler = routes.get(route);
 
