@@ -167,33 +167,30 @@ public class Instance {
 
     public void connect () {
         try {
-            _connect();
+            lastActivity = System.currentTimeMillis();
+            XComponentContext xLocalContext = createComponentContext();
+            XUnoUrlResolver xUnoUrlResolver = UnoUrlResolver.create(xLocalContext);
+
+            String url = getUrl();
+
+            Object context = xUnoUrlResolver.resolve(url);
+            xContext = UnoRuntime.queryInterface(XComponentContext.class, context);
+
+            if (xContext == null) {
+                throw new Exception("No component context!");
+            }
+
+            componentFactory = xContext.getServiceManager();
+            Desktop = componentFactory.createInstanceWithContext("com.sun.star.frame.Desktop", xContext);
+            xCompLoader = UnoRuntime.queryInterface(XComponentLoader.class, Desktop);
+            dispatchProvider = UnoRuntime.queryInterface(XDispatchProvider.class, Desktop);
+            state = State.READY;
+
+            Object bf = componentFactory.createInstanceWithContext("com.sun.star.bridge.BridgeFactory", xContext);
+            xbf = UnoRuntime.queryInterface(XBridgeFactory.class , bf);
         } catch (Throwable e) {
             //System.err.println("Connection failed, retry");
         }
-    }
-    private void _connect () throws Exception {
-        lastActivity = System.currentTimeMillis();
-        XComponentContext xLocalContext = createComponentContext();
-        XUnoUrlResolver xUnoUrlResolver = UnoUrlResolver.create(xLocalContext);
-
-        String url = getUrl();
-
-        Object context = xUnoUrlResolver.resolve(url);
-        xContext = UnoRuntime.queryInterface(XComponentContext.class, context);
-
-        if (xContext == null) {
-            throw new Exception("No component context!");
-        }
-
-        componentFactory = xContext.getServiceManager();
-        Desktop = componentFactory.createInstanceWithContext("com.sun.star.frame.Desktop", xContext);
-        xCompLoader = UnoRuntime.queryInterface(XComponentLoader.class, Desktop);
-        dispatchProvider = UnoRuntime.queryInterface(XDispatchProvider.class, Desktop);
-        state = State.READY;
-
-        Object bf = componentFactory.createInstanceWithContext("com.sun.star.bridge.BridgeFactory", xContext);
-        xbf = UnoRuntime.queryInterface(XBridgeFactory.class , bf);
     }
 
     public void release (XComponent document) {
@@ -219,17 +216,6 @@ public class Instance {
     }
 
     public XComponent loadDocument (String path) {
-        try {
-            return _loadDocument(path);
-        } catch (com.sun.star.io.IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-    private XComponent _loadDocument (String path) throws com.sun.star.io.IOException {
-        return xCompLoader.loadComponentFromURL(path, "_blank", 0, documentProperties);
-    }
-
-    public XComponent loadDocument2 (String path) {
         URL url = new URL();
         url.Complete = path;
 

@@ -19,11 +19,7 @@ public class Document {
 
     public void load (String path) {
         try {
-            File sourceFile = new File(path);
-            StringBuffer sourceUrl = new StringBuffer("file:///");
-            sourceUrl.append(sourceFile.getCanonicalPath().replace("\\", "/"));
-
-            document = office.loadDocument2(sourceUrl.toString());
+            document = office.loadDocument("file://" + path);
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
