@@ -39,7 +39,27 @@ public class Converter {
             inputFile.delete();
             Files.delete(outputFile);
         } catch (IOException e) {
-            //throw new RuntimeException(e);
+            System.out.print(e);
+        }
+    }
+
+    public void convert () {
+        try {
+            File inputFile = Util.writeTempFile("input_", ".tmp", req.body);
+            inputFile.deleteOnExit();
+
+            Path outputFile = Util.newTempPath("output_", ".pdf");
+
+            Document document = new Document(office);
+            document.load(inputFile.getPath());
+            document.convert(outputFile.toString());
+            res.file(outputFile.toString(), "application/pdf");
+            res.ready = true;
+            document.dispose();
+            inputFile.delete();
+            Files.delete(outputFile);
+        } catch (IOException e) {
+            System.out.print(e);
         }
     }
 
@@ -47,10 +67,8 @@ public class Converter {
         try {
             Instance instance = new Instance();
             instance.singleTask(req, res, false);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            System.out.print(e);
         }
     }
 
@@ -58,10 +76,8 @@ public class Converter {
         try {
             Instance instance = new Instance();
             instance.singleTask(req, res, true);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            System.out.print(e);
         }
     }
 }

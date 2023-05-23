@@ -10,7 +10,7 @@ public class Router extends Controller {
         Daemon daemon = new Daemon(minInstances != null ? Integer.parseInt(minInstances) : 5);
 
         get("/", (Request req, Response res) -> {
-            res.text("WOLOLO v0.4");
+            res.text("WOLOLO v0.5");
         });
 
         get("/status", (Request req, Response res) -> {
@@ -33,7 +33,14 @@ public class Router extends Controller {
         });
 
         post("/convert", (Request req, Response res) -> {
-            res.text("placeholder");
+            Instance instance = daemon.getInstance();
+            if (instance != null) {
+                Converter converter = new Converter(req, res, instance);
+                Thread thread = new Thread(converter::convert);
+                thread.start();
+            } else {
+                req.ready = false;
+            }
         });
 
         post("/legacy/print", (Request req, Response res) -> {

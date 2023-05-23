@@ -89,8 +89,8 @@ public class Instance {
         lastActivity = System.currentTimeMillis();
         state = State.STARTED;
 
-        pipe(process.getInputStream(), System.out, "");
-        pipe(process.getErrorStream(), System.err, "");
+        //pipe(process.getInputStream(), System.out, "");
+        //pipe(process.getErrorStream(), System.err, "");
     }
     private static void pipe(final InputStream in, final PrintStream out, final String prefix) {
         (new Thread("Pipe: " + prefix) {
@@ -270,8 +270,8 @@ public class Instance {
         };
 
         Process process = Runtime.getRuntime().exec(cmd);
-        //pipe(process.getInputStream(), System.out, "");
-        //pipe(process.getErrorStream(), System.err, "");
+        pipe(process.getInputStream(), System.out, "");
+        pipe(process.getErrorStream(), System.err, "");
         process.waitFor();
 
         if (process.exitValue() == 0) {
