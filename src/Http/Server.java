@@ -15,9 +15,9 @@ import java.util.Set;
 public class Server {
     ServerSocketChannel serverSocketChannel;
     Selector selector;
-
-    private Router router = new Router();
-    public Server () throws IOException {
+    private Router router;
+    public Server (boolean authorize, String secretKey) throws IOException {
+        router = new Router(authorize, secretKey);
         selector = Selector.open();
 
         serverSocketChannel = ServerSocketChannel.open();

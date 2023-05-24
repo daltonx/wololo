@@ -4,8 +4,13 @@ import Office.Converter;
 import Office.Daemon;
 import Office.Instance;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Router extends Controller {
-    Router () {
+    Router (boolean authorize, String secretKey) {
+        super(authorize, secretKey, new ArrayList<String>(List.of("/", "/status")));
+
         String minInstances = System.getenv("MIN_INSTANCES");
         Daemon daemon = new Daemon(minInstances != null ? Integer.parseInt(minInstances) : 5);
 
