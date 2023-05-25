@@ -128,6 +128,9 @@ public class Instance {
     public void kill () {
         try {
             System.err.println(String.format("INSTANCE %s - KILLED", pipeName));
+            process.descendants().forEach((ProcessHandle sub) -> {
+                sub.destroyForcibly();
+            });
             process.destroyForcibly();
             deleteProfile();
         } catch (IOException e) {
