@@ -5,11 +5,7 @@ import com.sun.star.beans.PropertyValue;
 import com.sun.star.frame.XStorable;
 import com.sun.star.lang.XComponent;
 import com.sun.star.uno.UnoRuntime;
-import com.sun.star.view.DocumentZoomType;
 import com.sun.star.view.XPrintable;
-import com.sun.star.view.XViewSettingsSupplier;
-
-import java.io.File;
 
 public class Document {
     private Instance office;
