@@ -19,6 +19,7 @@ public abstract class Controller {
             int tokenLifetime = Integer.parseInt(Objects.requireNonNullElse(System.getenv("TOKEN_LIFETIME"), "60"));
             whitelist.add(authRoute);
             tokenVerifier = new Authorization(secretKey);
+
             get(authRoute, (Request req, Response res) -> {
                 res.text(tokenVerifier.generateToken(tokenLifetime));
             });

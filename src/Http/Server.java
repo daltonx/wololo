@@ -10,6 +10,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Set;
 // broken pipe will crash the server
 public class Server {
@@ -17,12 +18,13 @@ public class Server {
     Selector selector;
     private Router router;
     public Server (boolean authorize, String secretKey) throws IOException {
+        String port = Objects.requireNonNullElse(System.getenv("PORT"), "7777");
         router = new Router(authorize, secretKey);
         selector = Selector.open();
 
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.configureBlocking(false);
-        serverSocketChannel.bind(new InetSocketAddress("0.0.0.0", 7777));
+        serverSocketChannel.bind(new InetSocketAddress("0.0.0.0", Integer.parseInt(port)));
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
         Thread thread = new Thread(this::run);

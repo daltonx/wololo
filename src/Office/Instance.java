@@ -12,10 +12,7 @@ import com.sun.star.comp.helper.ComponentContextEntry;
 import com.sun.star.comp.loader.JavaLoader;
 import com.sun.star.comp.servicemanager.ServiceManager;
 import com.sun.star.container.XSet;
-import com.sun.star.frame.XComponentLoader;
-import com.sun.star.frame.XDispatch;
-import com.sun.star.frame.XDispatchProvider;
-import com.sun.star.frame.XSynchronousDispatch;
+import com.sun.star.frame.*;
 import com.sun.star.lang.*;
 import com.sun.star.loader.XImplementationLoader;
 import com.sun.star.uno.Exception;
@@ -40,7 +37,7 @@ public class Instance {
     public Process process;
     public XComponentContext xContext;
     public XMultiComponentFactory componentFactory;
-    public Object Desktop;
+    public XDesktop Desktop;
     public String pipeName;
     public ComponentContext xLocalContext;
     public XComponentLoader xCompLoader;
@@ -115,7 +112,7 @@ public class Instance {
         }).start();
     }
 
-    private void deleteProfile () throws IOException {
+    private void deleteProfile () throws IOException, UncheckedIOException {
         Files.walk(userInstallation)
                 .sorted(Comparator.reverseOrder())
                 .map(Path::toFile)
@@ -127,13 +124,10 @@ public class Instance {
      */
     public void kill () {
         try {
+            Desktop.terminate();
             System.err.println(String.format("INSTANCE %s - KILLED", pipeName));
-            process.descendants().forEach((ProcessHandle sub) -> {
-                sub.destroyForcibly();
-            });
-            process.destroyForcibly();
             deleteProfile();
-        } catch (IOException e) {
+        } catch (java.lang.Exception e) {
             System.out.print("Failed to kill a instance.");
             //throw new RuntimeException(e);
         }
@@ -184,7 +178,9 @@ public class Instance {
             }
 
             componentFactory = xContext.getServiceManager();
-            Desktop = componentFactory.createInstanceWithContext("com.sun.star.frame.Desktop", xContext);
+            Object _Desktop = componentFactory.createInstanceWithContext("com.sun.star.frame.Desktop", xContext);
+            Desktop = UnoRuntime.queryInterface(XDesktop.class, _Desktop);
+
             xCompLoader = UnoRuntime.queryInterface(XComponentLoader.class, Desktop);
             dispatchProvider = UnoRuntime.queryInterface(XDispatchProvider.class, Desktop);
             state = State.READY;

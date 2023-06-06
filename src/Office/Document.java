@@ -5,7 +5,9 @@ import com.sun.star.beans.PropertyValue;
 import com.sun.star.frame.XStorable;
 import com.sun.star.lang.XComponent;
 import com.sun.star.uno.UnoRuntime;
+import com.sun.star.view.DocumentZoomType;
 import com.sun.star.view.XPrintable;
+import com.sun.star.view.XViewSettingsSupplier;
 
 import java.io.File;
 
@@ -27,6 +29,7 @@ public class Document {
     public void print (String path) {
         try {
             XPrintable xPrintable = UnoRuntime.queryInterface(XPrintable.class, this.document);
+
             xPrintable.print(new PropertyValue[]{
                     new PropertyValue("FileName", -1, "file://" + path, PropertyState.DIRECT_VALUE),
                     new PropertyValue("Wait", -1, true, PropertyState.DIRECT_VALUE),
