@@ -66,5 +66,4 @@ class ByteTokenizer {
         }
         return -1;
     }
-
 }

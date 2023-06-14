@@ -1,27 +1,28 @@
 package Http;
 
-import Office.Converter;
-import Office.Daemon;
-import Office.Instance;
+import Office.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class Router extends Controller {
     Router (boolean authorize, String secretKey) {
         super(authorize, secretKey, new ArrayList<String>(List.of("/", "/status")));
 
-        String minInstances = System.getenv("MIN_INSTANCES");
-        Daemon daemon = new Daemon(minInstances != null ? Integer.parseInt(minInstances) : 5);
+        String minInstances = Objects.requireNonNullElse(System.getenv("MIN_INSTANCES"), "2");
+        String maxInstances = Objects.requireNonNullElse(System.getenv("MAX_INSTANCES"), "5");
+
+        Daemon daemon = new Daemon(Integer.parseInt(minInstances), Integer.parseInt(maxInstances));
 
         get("/", (Request req, Response res) -> {
-            res.text("WOLOLO v0.5");
+            res.text("WOLOLO v0.6");
         });
 
         get("/status", (Request req, Response res) -> {
             String data = "";
             for (Instance instance: daemon.instances) {
-                data += String.format("<div>%s - %s - %d RUNS<div>", instance.pipeName, instance.state, instance.runs);
+                data += String.format("<div>%s - %d RUNS - %s QUEUED<div>", instance.getTitle(), instance.runs, instance.queued);
             }
             res.text(data);
         });

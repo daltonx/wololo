@@ -5,70 +5,104 @@ import Http.Response;
 import com.sun.star.beans.PropertyState;
 import com.sun.star.beans.PropertyValue;
 import com.sun.star.bridge.UnoUrlResolver;
-import com.sun.star.bridge.XBridgeFactory;
 import com.sun.star.bridge.XUnoUrlResolver;
-import com.sun.star.comp.helper.ComponentContext;
-import com.sun.star.comp.helper.ComponentContextEntry;
-import com.sun.star.comp.loader.JavaLoader;
-import com.sun.star.comp.servicemanager.ServiceManager;
-import com.sun.star.container.XSet;
-import com.sun.star.frame.*;
-import com.sun.star.lang.*;
-import com.sun.star.loader.XImplementationLoader;
+import com.sun.star.frame.XDesktop;
+import com.sun.star.frame.XDispatch;
+import com.sun.star.frame.XDispatchProvider;
+import com.sun.star.lang.XMultiComponentFactory;
 import com.sun.star.uno.Exception;
 import com.sun.star.uno.UnoRuntime;
 import com.sun.star.uno.XComponentContext;
 import com.sun.star.util.URL;
-import com.sun.star.util.XCloseable;
 
-
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Random;
 
 public class Instance {
-    private PropertyValue[] documentProperties;
-    public State state = State.STOPPED;
-    public long lastActivity;
+    private final String sOffice = System.getenv("SOFFICE");
+    public int queued = 0;
     public int runs = 0;
-    public Process process;
-    public XComponentContext xContext;
-    public XMultiComponentFactory componentFactory;
-    public XDesktop Desktop;
-    public String pipeName;
-    public ComponentContext xLocalContext;
-    public XComponentLoader xCompLoader;
-    private XDispatchProvider dispatchProvider;
-    public XBridgeFactory xbf;
+    private long lastActivity;
+    private String pipeName;
     private Path userInstallation;
+    private boolean alive = false;
+    private boolean connected = false;
+    final int TIMEOUT = 60000;
+    private XDesktop Desktop;
+    private XDispatchProvider dispatchProvider;
+    private final PropertyValue[] documentProperties = new PropertyValue[]{
+        new PropertyValue("ReadOnly", -1, true, PropertyState.DIRECT_VALUE),
+        new PropertyValue("OpenNewView", -1, true, PropertyState.DIRECT_VALUE),
+        new PropertyValue("Silent", -1, true, PropertyState.DIRECT_VALUE),
+        //new PropertyValue("Hidden", -1, true, PropertyState.DIRECT_VALUE),
+    };
 
-    public Instance() {
-        //properties ReadOnly, OpenNewView, Hidden, Silent should be added, as in dispatchwatcher.cxx
-        documentProperties = new PropertyValue[]{
-                new PropertyValue("ReadOnly", -1, true, PropertyState.DIRECT_VALUE),
-                new PropertyValue("OpenNewView", -1, true, PropertyState.DIRECT_VALUE),
-                new PropertyValue("Silent", -1, true, PropertyState.DIRECT_VALUE),
-                //new PropertyValue("Hidden", -1, true, PropertyState.DIRECT_VALUE),
-        };
+    public Instance() {}
+
+    public Instance(String pipeName) {
+        this.pipeName = pipeName;
+    }
+
+    public State getState () {
+        long now = System.currentTimeMillis();
+        boolean timedOut = (lastActivity + TIMEOUT) < now;
+
+        if (!alive)
+            return State.DRAFT;
+
+        if (!connected)
+            return State.IDLE;
+
+        if (timedOut)
+            return State.TRASH;
+
+        if (runs >= 10) {
+            if (queued == 0)
+                return State.TRASH;
+            return State.SICK;
+        }
+
+        if (queued >= 5)
+            return State.BUSY;
+
+        return State.READY;
+    }
+
+    public String getTitle () {
+        return String.format("%s - %s", pipeName, getState());
     }
 
     public void start () {
         try {
             _start();
-        } catch (Throwable e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
+    public void connect () {
+        try {
+            long now = System.currentTimeMillis();
+            if (now - lastActivity > 2000)
+                _connect();
+        } catch (Exception e) {
+            //System.out.println(e);
+            //throw new RuntimeException(e);
+        }
+    }
+
+    private String getUrl () {
+        return "uno:pipe,name=" + pipeName + ";urp;StarOffice.ComponentContext";
+    }
+
     private void _start () throws IOException {
         Random random = new Random();
-        pipeName = "uno" + Long.toString(random.nextLong() & Long.MAX_VALUE);
-
-        String sOffice = System.getenv("SOFFICE");
-
+        pipeName = "uno" + (random.nextLong() & Long.MAX_VALUE);
         userInstallation = Util.newTempPath("soffice_", "");
 
         String cmd[] = new String[]{
@@ -79,158 +113,85 @@ public class Instance {
                 "--norestore",
                 "--nolockcheck",
                 "--accept=pipe,name=" + pipeName + ";urp;",
-                "-env:UserInstallation=file://" + userInstallation.toString(),
+                "-env:UserInstallation=file://" + userInstallation,
         };
 
-        process = Runtime.getRuntime().exec(cmd);
+        Process process = Runtime.getRuntime().exec(cmd);
         lastActivity = System.currentTimeMillis();
-        state = State.STARTED;
 
-        //pipe(process.getInputStream(), System.out, "");
-        //pipe(process.getErrorStream(), System.err, "");
-    }
-    private static void pipe(final InputStream in, final PrintStream out, final String prefix) {
-        (new Thread("Pipe: " + prefix) {
-            public void run() {
-                try {
-                    BufferedReader r = new BufferedReader(new InputStreamReader(in, "UTF-8"));
-
-                    while(true) {
-                        String s = r.readLine();
-                        if (s == null) {
-                            break;
-                        }
-
-                        out.println(prefix + s);
-                    }
-                } catch (UnsupportedEncodingException var3) {
-                    var3.printStackTrace(System.err);
-                } catch (IOException var4) {
-                    var4.printStackTrace(System.err);
-                }
-            }
-        }).start();
+        alive = true;
     }
 
-    private void deleteProfile () throws IOException, UncheckedIOException {
+    private void _connect () throws Exception {
+        lastActivity = System.currentTimeMillis();
+        XComponentContext xLocalContext = Bootstrap.createComponentContext();
+        XUnoUrlResolver xUnoUrlResolver = UnoUrlResolver.create(xLocalContext);
+
+        String url = getUrl();
+
+        Object context = xUnoUrlResolver.resolve(url);
+        XComponentContext xContext = UnoRuntime.queryInterface(XComponentContext.class, context);
+
+        if (xContext == null)
+            throw new Exception("No component context");
+
+        XMultiComponentFactory componentFactory = xContext.getServiceManager();
+        Object _Desktop = componentFactory.createInstanceWithContext("com.sun.star.frame.Desktop", xContext);
+        Desktop = UnoRuntime.queryInterface(XDesktop.class, _Desktop);
+
+        dispatchProvider = UnoRuntime.queryInterface(XDispatchProvider.class, Desktop);
+        connected = true;
+    }
+
+    private void deleteProfile () throws IOException {
+        deleteProfile(userInstallation);
+    }
+
+    private static void deleteProfile (Path userInstallation) throws IOException, UncheckedIOException {
         Files.walk(userInstallation)
                 .sorted(Comparator.reverseOrder())
                 .map(Path::toFile)
                 .forEach(File::delete);
     }
 
-    /**
-     * @TODO clear /tmp dirs and files properly
-     */
-    public void kill () {
+    public boolean terminate () {
+        if (getState() != State.TRASH)
+            return false;
+
         try {
             Desktop.terminate();
-            System.err.println(String.format("INSTANCE %s - KILLED", pipeName));
+            System.out.println(String.format("INSTANCE %s - KILLED", getTitle()));
             deleteProfile();
-        } catch (java.lang.Exception e) {
-            System.out.print("Failed to kill a instance.");
+        } catch (IOException e) {
+            System.out.println("Failed to kill a instance");
             //throw new RuntimeException(e);
         }
+        return true;
     }
 
-    private void insertFactories(XSet xSet, XImplementationLoader xImpLoader) throws Exception {
-        xSet.insert(xImpLoader.activate("com.sun.star.comp.urlresolver.UrlResolver", null, null, null));
-        xSet.insert(xImpLoader.activate("com.sun.star.comp.bridgefactory.BridgeFactory", null, null, null));
-        xSet.insert(xImpLoader.activate("com.sun.star.comp.connections.Connector", null, null, null));
-        xSet.insert(xImpLoader.activate("com.sun.star.comp.connections.Acceptor", null, null, null));
+    public XDispatch queryDispatch (URL url, String s, int i) {
+        return dispatchProvider.queryDispatch(url, s, i);
     }
 
-    private XComponentContext createComponentContext () throws Exception {
-        ServiceManager serviceManager = new ServiceManager();
-        XImplementationLoader xImplementationLoader = UnoRuntime.queryInterface(XImplementationLoader.class, new JavaLoader());
-        XInitialization xInitialization = UnoRuntime.queryInterface(XInitialization.class, xImplementationLoader);
-        xInitialization.initialize(new Object[]{serviceManager});
-
-        HashMap contextEntries = new HashMap(1);
-        contextEntries.put("/singletons/com.sun.star.lang.theServiceManager", new ComponentContextEntry(null, serviceManager));
-
-        xLocalContext = new ComponentContext(contextEntries, null);
-        serviceManager.setDefaultContext(xLocalContext);
-        XSet xSet = UnoRuntime.queryInterface(XSet.class, serviceManager);
-
-        insertFactories(xSet, xImplementationLoader);
-
-        return xLocalContext;
-    }
-
-    public String getUrl () {
-        return "uno:pipe,name=" + this.pipeName + ";urp;StarOffice.ComponentContext";
-    }
-
-    public void connect () {
-        try {
-            lastActivity = System.currentTimeMillis();
-            XComponentContext xLocalContext = createComponentContext();
-            XUnoUrlResolver xUnoUrlResolver = UnoUrlResolver.create(xLocalContext);
-
-            String url = getUrl();
-
-            Object context = xUnoUrlResolver.resolve(url);
-            xContext = UnoRuntime.queryInterface(XComponentContext.class, context);
-
-            if (xContext == null) {
-                throw new Exception("No component context!");
-            }
-
-            componentFactory = xContext.getServiceManager();
-            Object _Desktop = componentFactory.createInstanceWithContext("com.sun.star.frame.Desktop", xContext);
-            Desktop = UnoRuntime.queryInterface(XDesktop.class, _Desktop);
-
-            xCompLoader = UnoRuntime.queryInterface(XComponentLoader.class, Desktop);
-            dispatchProvider = UnoRuntime.queryInterface(XDispatchProvider.class, Desktop);
-            state = State.READY;
-
-            Object bf = componentFactory.createInstanceWithContext("com.sun.star.bridge.BridgeFactory", xContext);
-            xbf = UnoRuntime.queryInterface(XBridgeFactory.class , bf);
-        } catch (Throwable e) {
-            //System.err.println("Connection failed, retry");
-        }
-    }
-
-    public void release (XComponent document) {
-        if (state != State.SICK) {
-            try {
-                XCloseable xCloseable = UnoRuntime.queryInterface(XCloseable.class, document);
-                xCloseable.close(true);
-                state = State.READY;
-                System.out.println(String.format("INSTANCE %s - RELEASED", pipeName));
-            } catch (Throwable e) {
-                state = State.DEAD;
-            }
-        } else {
-            state = State.DEAD;
-        }
-    }
-
-    public void lock () {
+    public void attach () {
+        System.out.println(String.format("INSTANCE %s - ATTACHED", getTitle()));
         runs++;
-        lastActivity = System.currentTimeMillis();
-        state = runs > 5 ? State.SICK : State.BUSY;
-        System.out.println(String.format("INSTANCE %s - LOCKED", pipeName));
+        queued++;
     }
 
-    public XComponent loadDocument (String path) {
-        URL url = new URL();
-        url.Complete = path;
-
-        XDispatch dispatch = dispatchProvider.queryDispatch(url, "_blank", 0);
-        XSynchronousDispatch synchronousDispatch = UnoRuntime.queryInterface(XSynchronousDispatch.class, dispatch);
-
-        Object doc = synchronousDispatch.dispatchWithReturnValue(url, documentProperties);
-        XComponent xDoc = UnoRuntime.queryInterface(XComponent.class, doc);
-
-        return xDoc;
+    public void detach () {
+        System.out.println(String.format("INSTANCE %s - DETACHED", getTitle()));
+        queued--;
     }
 
-    public void singleTask (Request req, Response res, boolean convert) throws IOException, InterruptedException {
+    public int getHealth () {
+        return queued + runs;
+    }
+
+    public static void singleTask (Request req, Response res, boolean convert) throws IOException, InterruptedException {
         String sOffice = System.getenv("SOFFICE");
 
-        userInstallation = Util.newTempPath("soffice_", "");
+        Path userInstallation = Util.newTempPath("soffice_", "");
 
         File inputFile = Util.writeTempFile("input_", ".tmp", req.body);
         inputFile.deleteOnExit();
@@ -255,8 +216,8 @@ public class Instance {
         };
 
         Process process = Runtime.getRuntime().exec(cmd);
-        pipe(process.getInputStream(), System.out, "");
-        pipe(process.getErrorStream(), System.err, "");
+        //pipe(process.getInputStream(), System.out, "");
+        //pipe(process.getErrorStream(), System.err, "");
         process.waitFor();
 
         if (process.exitValue() == 0) {
@@ -268,6 +229,6 @@ public class Instance {
         }
 
         inputFile.delete();
-        deleteProfile();
+        deleteProfile(userInstallation);
     }
 }

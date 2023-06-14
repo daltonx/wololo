@@ -35,7 +35,7 @@ public class Converter {
             document.print(outputFile.toString());
             res.file(outputFile.toString(), "application/pdf");
             res.ready = true;
-            document.dispose();
+            document.close();
             inputFile.delete();
             Files.delete(outputFile);
         } catch (IOException e) {
@@ -55,7 +55,7 @@ public class Converter {
             document.convert(outputFile.toString());
             res.file(outputFile.toString(), "application/pdf");
             res.ready = true;
-            document.dispose();
+            document.close();
             inputFile.delete();
             Files.delete(outputFile);
         } catch (IOException e) {
@@ -65,8 +65,7 @@ public class Converter {
 
     public void legacyPrint () {
         try {
-            Instance instance = new Instance();
-            instance.singleTask(req, res, false);
+            Instance.singleTask(req, res, false);
         } catch (Exception e) {
             System.out.print(e);
         }
@@ -74,8 +73,7 @@ public class Converter {
 
     public void legacyConvert () {
         try {
-            Instance instance = new Instance();
-            instance.singleTask(req, res, true);
+            Instance.singleTask(req, res, true);
         } catch (Exception e) {
             System.out.print(e);
         }

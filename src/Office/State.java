@@ -1,10 +1,10 @@
 package Office;
 
 public enum State {
-    STOPPED,
-    STARTED,
+    DRAFT,
+    IDLE,
     READY,
     BUSY,
     SICK,
-    DEAD
+    TRASH
 }

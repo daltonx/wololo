@@ -1,24 +1,18 @@
 package Office;
+import java.util.*;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
-
-// should keep a queue of tasks to execute
-// when a client requests conversion, push the task to a queue
-// a loop should go through
 public class Daemon {
-    final int TIMEOUT = 60000;
-    int minInstances = 0;
-    ArrayList<Instance> ready = new ArrayList<>();
+    private int minInstances;
+    private int maxInstances;
+    private ArrayList<Instance> ready = new ArrayList<>();
     public Set<Instance> instances = new HashSet<>();
-    long lastStart = 0;
+    long spikeTimer = 0;
+    int spikeCounter = 0;
 
-    public Daemon (int minInstances) {
+    public Daemon(int minInstances, int maxInstances) {
         this.minInstances = minInstances;
-        Thread loop = new Thread(this::run);
-        loop.start();
+        this.maxInstances = maxInstances;
+        (new Thread(this::run)).start();
     }
 
     private void run () {
@@ -32,74 +26,56 @@ public class Daemon {
     }
 
     private void _run () {
-        long now = System.currentTimeMillis();
         ArrayList<Instance> _ready = new ArrayList<>();
-
-        if (instances.size() < minInstances) {
-            int missing = minInstances - instances.size();
-            for (int i = 0; i < missing; i++) {
-                instances.add(new Instance());
-            }
-        }
-
         Iterator<Instance> iterator = instances.iterator();
-        int notBusy = 0;
 
         while (iterator.hasNext()) {
             Instance instance = iterator.next();
 
-            if (instance.state != State.STOPPED && (now - instance.lastActivity) > TIMEOUT) {
-                instance.kill();
-                ready.remove(instance);
-                iterator.remove();
-                System.err.println("Killed - RUDY"); // R U DEAD YET? NOT RESPONDING
-                continue;
-            }
-
-            if (instance.state == State.DEAD) {
-                instance.kill();
-                iterator.remove();
-                continue;
-            }
-
-            if (instance.state == State.READY) {
-                notBusy++;
-                _ready.add(instance);
-                continue;
-            }
-
-            if (instance.state == State.STOPPED) {
-                notBusy++;
-                // AVOIDING CONCURRENT SPAWNS
-                if (now - lastStart > 5000) {
-                    lastStart = now;
+            switch (instance.getState()) {
+                case DRAFT:
                     instance.start();
-                }
-                continue;
-            }
-
-            if (instance.state == State.STARTED) {
-                notBusy++;
-                if (now - instance.lastActivity > 1000) {
+                    break;
+                case IDLE:
                     instance.connect();
-                }
+                    break;
+                case READY:
+                    _ready.add(instance);
+                    break;
+                case TRASH:
+                    if (instance.terminate())
+                        iterator.remove();
+                    break;
             }
         }
 
-        // SHIT WILL HAPPEN IF NOTHING HAPPENS ABOVE
-        // AND THIS IS EXECUTED REPEATEDLY
-        if (notBusy < (minInstances / 2) && instances.size() < minInstances * 2) {
-            Instance tempInstance = new Instance();
-            instances.add(tempInstance);
-            System.out.println("ADDING 1 INSTANCE");
-        }
+        // consider each instance could handle 10 tasks in 30s
+        int targetInstances = Math.min(
+                maxInstances,
+                Math.max(
+                        minInstances,
+                        (int) spikeCounter / 5
+                )
+        );
 
+        if (targetInstances > instances.size())
+            instances.add(new Instance());
+
+        _ready.sort(Comparator.comparing(Instance::getHealth));
         ready = _ready;
+
+        long now = System.currentTimeMillis();
+        if (spikeTimer + 30000 < now) {
+            spikeTimer = now;
+            spikeCounter = 0;
+        }
     }
+
     public Instance getInstance () {
+        spikeCounter++;
         try {
-            Instance instance = ready.remove(0);
-            instance.lock();
+            Instance instance = ready.get(0);
+            instance.attach();
             return instance;
         } catch (Throwable e) {
             return null;
